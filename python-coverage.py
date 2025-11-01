@@ -16,7 +16,7 @@ COVERAGE_FILES = {}
 FILE_OBSERVER = None
 
 FileWatcher = None
-LAST_ACTIVE_VIEW = None
+ACTIVE_VIEWS = {}  # Map view_id -> PythonCoverageEventListener instance
 
 SETTINGS_FILE = "python-coverage.sublime-settings"
 
@@ -25,61 +25,92 @@ def plugin_loaded():
     """
     Hook that is called by Sublime when plugin is loaded.
     """
-    packaging_wheel = HERE / "libs" / "packaging-23.1-py3-none-any.whl"
-    if str(packaging_wheel) not in sys.path:
-        sys.path.append(str(packaging_wheel))
-
-    from packaging.tags import sys_tags
-
-    tags = [str(tag) for tag in sys_tags()]
-
-    for prefix in {"coverage*", "watchdog*"}:
-        # Figure out the right whl for the platform
-        for wheel in (HERE / "libs").glob(prefix):
-            wheel_tag = "-".join(wheel.stem.split("-")[2:])
-            if wheel_tag in tags:
-                break
-        else:
-            print(f"Could not find compatible {prefix} wheel for your platform")
+    try:
+        packaging_wheel = HERE / "libs" / "packaging-23.1-py3-none-any.whl"
+        if not packaging_wheel.exists():
+            sublime.error_message(
+                "Python Coverage: Missing packaging library.\n"
+                "Please reinstall the plugin."
+            )
             return
 
-        if str(wheel) not in sys.path:
-            sys.path.append(str(wheel))
+        if str(packaging_wheel) not in sys.path:
+            sys.path.append(str(packaging_wheel))
 
-    from watchdog.observers import Observer
+        from packaging.tags import sys_tags
 
-    # TODO: only start watching when plugin is showing missing lines
-    global FILE_OBSERVER
-    FILE_OBSERVER = Observer()
-    FILE_OBSERVER.start()
+        tags = [str(tag) for tag in sys_tags()]
 
-    from watchdog.events import FileSystemEventHandler
+        for prefix in {"coverage*", "watchdog*"}:
+            # Figure out the right whl for the platform
+            wheel_found = False
+            for wheel in (HERE / "libs").glob(prefix):
+                wheel_tag = "-".join(wheel.stem.split("-")[2:])
+                if wheel_tag in tags:
+                    wheel_found = True
+                    break
 
-    class _FileWatcher(FileSystemEventHandler):
-        def __init__(self, file):
-            super().__init__()
-            self.file = file
-
-        def _update(self, event):
-            if not event.src_path.endswith(".coverage"):
+            if not wheel_found:
+                lib_name = prefix.replace("*", "")
+                sublime.error_message(
+                    f"Python Coverage: Could not find compatible {lib_name} "
+                    f"library for your platform.\n\n"
+                    f"Platform tags: {tags[:3]}...\n"
+                    f"Please report this issue on GitHub."
+                )
                 return
 
-            if str(event.src_path) != str(self.file):
-                return
+            if str(wheel) not in sys.path:
+                sys.path.append(str(wheel))
 
-            COVERAGE_FILES[self.file].update()
+        from watchdog.observers import Observer
 
-            if LAST_ACTIVE_VIEW:
-                LAST_ACTIVE_VIEW._update_regions()
+        # TODO: only start watching when plugin is showing missing lines
+        global FILE_OBSERVER
+        FILE_OBSERVER = Observer()
+        FILE_OBSERVER.start()
 
-        def on_modified(self, event):
-            self._update(event)
+        from watchdog.events import FileSystemEventHandler
 
-        def on_created(self, event):
-            self._update(event)
+        class _FileWatcher(FileSystemEventHandler):
+            def __init__(self, file):
+                super().__init__()
+                self.file = file
 
-    global FileWatcher
-    FileWatcher = _FileWatcher
+            def _update(self, event):
+                if not event.src_path.endswith(".coverage"):
+                    return
+
+                if str(event.src_path) != str(self.file):
+                    return
+
+                try:
+                    COVERAGE_FILES[self.file].update()
+
+                    # Update all active views
+                    for view_listener in ACTIVE_VIEWS.values():
+                        view_listener._update_regions()
+                except Exception as e:
+                    print(f"Python Coverage: Error updating coverage data: {e}")
+
+            def on_modified(self, event):
+                self._update(event)
+
+            def on_created(self, event):
+                self._update(event)
+
+        global FileWatcher
+        FileWatcher = _FileWatcher
+
+    except Exception as e:
+        sublime.error_message(
+            f"Python Coverage: Failed to load plugin.\n\n"
+            f"Error: {e}\n\n"
+            f"Please report this issue on GitHub."
+        )
+        print(f"Python Coverage: Plugin load error: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def plugin_unloaded():
@@ -87,12 +118,12 @@ def plugin_unloaded():
     Hook that is called by Sublime when plugin is unloaded.
     """
     COVERAGE_FILES.clear()
+    ACTIVE_VIEWS.clear()
     global FILE_OBSERVER
-    FILE_OBSERVER.stop()
-    FILE_OBSERVER.join()
-    FILE_OBSERVER = None
-    global LAST_ACTIVE_VIEW
-    LAST_ACTIVE_VIEW = None
+    if FILE_OBSERVER:
+        FILE_OBSERVER.stop()
+        FILE_OBSERVER.join()
+        FILE_OBSERVER = None
 
 
 class CoverageFile:
@@ -207,8 +238,11 @@ class PythonCoverageEventListener(sublime_plugin.ViewEventListener):
         Called after changes have been made to the view.
         Runs in a separate thread, and does not block the application.
         """
-        pass
-        # TODO: clear the modified region(s), if any
+        # Clear coverage markers when file is modified
+        # They may no longer be accurate since the code has changed
+        settings = sublime.load_settings(SETTINGS_FILE)
+        if settings["show_missing_lines"]:
+            self.view.erase_regions(key="python-coverage")
 
     def on_activated_async(self):
         """
@@ -218,12 +252,26 @@ class PythonCoverageEventListener(sublime_plugin.ViewEventListener):
         settings = sublime.load_settings(SETTINGS_FILE)
         if not settings["show_missing_lines"]:
             self.view.erase_regions(key="python-coverage")
+            # Remove from active views if present
+            view_id = self.view.id()
+            if view_id in ACTIVE_VIEWS:
+                del ACTIVE_VIEWS[view_id]
             return
 
-        global LAST_ACTIVE_VIEW
-        LAST_ACTIVE_VIEW = self
+        # Add this view to active views
+        view_id = self.view.id()
+        ACTIVE_VIEWS[view_id] = self
 
         self._update_regions()
+
+    def on_close(self):
+        """
+        Called when a view is closed. Runs in the main thread.
+        """
+        # Remove from active views when closed
+        view_id = self.view.id()
+        if view_id in ACTIVE_VIEWS:
+            del ACTIVE_VIEWS[view_id]
 
     def _update_regions(self):
         file_name = self.view.file_name()
