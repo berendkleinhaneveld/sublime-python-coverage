@@ -108,15 +108,27 @@ def reset_globals():
     import python_coverage as pc
 
     # Clear global state if attributes exist
-    if hasattr(pc, "COVERAGE_FILES") and pc.COVERAGE_FILES:
-        pc.COVERAGE_FILES.clear()
-    if hasattr(pc, "LAST_ACTIVE_VIEW"):
-        pc.LAST_ACTIVE_VIEW = None
+    if hasattr(pc, "ACTIVE_VIEWS") and pc.ACTIVE_VIEWS:
+        pc.ACTIVE_VIEWS.clear()
+
+    # Reset coverage manager if it exists
+    if hasattr(pc, "COVERAGE_MANAGER") and pc.COVERAGE_MANAGER:
+        # Shutdown existing manager
+        try:
+            pc.COVERAGE_MANAGER.shutdown()
+        except Exception:
+            pass
+        pc.COVERAGE_MANAGER = None
 
     yield
 
     # Cleanup after test
-    if hasattr(pc, "COVERAGE_FILES") and pc.COVERAGE_FILES:
-        pc.COVERAGE_FILES.clear()
-    if hasattr(pc, "LAST_ACTIVE_VIEW"):
-        pc.LAST_ACTIVE_VIEW = None
+    if hasattr(pc, "ACTIVE_VIEWS") and pc.ACTIVE_VIEWS:
+        pc.ACTIVE_VIEWS.clear()
+
+    if hasattr(pc, "COVERAGE_MANAGER") and pc.COVERAGE_MANAGER:
+        try:
+            pc.COVERAGE_MANAGER.shutdown()
+        except Exception:
+            pass
+        pc.COVERAGE_MANAGER = None

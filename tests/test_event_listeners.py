@@ -16,28 +16,34 @@ class TestPythonCoverageDataFileListener:
 
     def test_update_available_coverage_files_disabled(self, mocker, sublime_window, temp_coverage_file):
         """Test update_available_coverage_files when feature is disabled."""
-        from python_coverage import PythonCoverageDataFileListener
+        from python_coverage import PythonCoverageDataFileListener, CoverageManager
+        import python_coverage as pc
+
+        # Initialize manager
+        pc.COVERAGE_MANAGER = CoverageManager()
+        pc.COVERAGE_MANAGER.initialize()
 
         mock_settings = mocker.MagicMock()
-        mock_settings.__getitem__.return_value = False  # show_missing_lines = False
+        mock_settings.get.return_value = False  # show_missing_lines = False
 
         with patch("sublime.load_settings", return_value=mock_settings):
             listener = PythonCoverageDataFileListener()
             listener.update_available_coverage_files(sublime_window)
 
             # Should not add any coverage files
-            from python_coverage import COVERAGE_FILES
-            assert len(COVERAGE_FILES) == 0
+            assert len(pc.COVERAGE_MANAGER.coverage_files) == 0
 
     def test_update_available_coverage_files_enabled(
         self,
         mocker,
         sublime_window,
         tmp_path,
-        mock_file_observer
+        mock_file_observer,
+        mock_coverage_data
     ):
         """Test update_available_coverage_files when feature is enabled."""
-        from python_coverage import PythonCoverageDataFileListener, COVERAGE_FILES
+        from python_coverage import PythonCoverageDataFileListener, CoverageManager
+        import python_coverage as pc
 
         # Create a .coverage file in the temp directory
         coverage_file = tmp_path / ".coverage"
@@ -46,20 +52,20 @@ class TestPythonCoverageDataFileListener:
         # Update window to point to temp directory
         sublime_window._folders = [str(tmp_path)]
 
+        # Initialize coverage manager
+        pc.COVERAGE_MANAGER = CoverageManager()
+        pc.COVERAGE_MANAGER.initialize()
+
         mock_settings = mocker.MagicMock()
-        mock_settings.__getitem__.return_value = True  # show_missing_lines = True
+        mock_settings.get.return_value = True  # show_missing_lines = True
 
-        with patch("sublime.load_settings", return_value=mock_settings), \
-             patch("python_coverage.FileWatcher"), \
-             patch("python_coverage.FILE_OBSERVER", mock_file_observer), \
-             patch("coverage.Coverage"):
-
+        with patch("sublime.load_settings", return_value=mock_settings):
             listener = PythonCoverageDataFileListener()
             listener.update_available_coverage_files(sublime_window)
 
             # Should add the coverage file
-            assert len(COVERAGE_FILES) == 1
-            assert coverage_file in COVERAGE_FILES
+            assert len(pc.COVERAGE_MANAGER.coverage_files) == 1
+            assert coverage_file in pc.COVERAGE_MANAGER.coverage_files
 
 
 class TestPythonCoverageEventListener:
