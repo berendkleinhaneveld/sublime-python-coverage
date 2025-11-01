@@ -44,7 +44,8 @@ class View:
     def __init__(self, file_name: Optional[str] = None):
         self._file_name = file_name
         self._regions = {}
-        self._size = 1000
+        self._content = ""
+        self._size = 0
         self._lines = []
         self._id = View._id_counter
         View._id_counter += 1
@@ -63,11 +64,21 @@ class View:
 
     def substr(self, region: Region) -> str:
         """Return the string within the region."""
-        return ""
+        if hasattr(region, "a") and hasattr(region, "b"):
+            return self._content[region.a : region.b]
+        return self._content
 
     def lines(self, region: Region) -> list:
         """Return lines within the region."""
-        return self._lines
+        # Split content into lines and create regions for each
+        lines = self._content.split("\n")
+        regions = []
+        pos = 0
+        for line in lines:
+            line_end = pos + len(line)
+            regions.append(Region(pos, line_end))
+            pos = line_end + 1  # +1 for the newline
+        return regions
 
     def add_regions(self, key: str, regions: list, scope: str = "", icon: str = "", flags: int = 0):
         """Add regions to the view."""
