@@ -603,7 +603,7 @@ class ToggleMissingLinesCommand(sublime_plugin.ApplicationCommand):
 
 class PythonCoverageDataFileListener(sublime_plugin.EventListener):
     @classmethod
-    def is_applicable(cls, settings):
+    def is_applicable(cls, _settings):
         """
         Returns:
             Whether this listener should apply to a view with the given Settings.
@@ -708,8 +708,7 @@ class PythonCoverageEventListener(sublime_plugin.ViewEventListener):
                 self.view.erase_regions(key="python-coverage")
                 # Remove from active views if present
                 view_id = self.view.id()
-                if view_id in ACTIVE_VIEWS:
-                    del ACTIVE_VIEWS[view_id]
+                ACTIVE_VIEWS.pop(view_id, None)
                 return
 
             # Add this view to active views
@@ -727,8 +726,7 @@ class PythonCoverageEventListener(sublime_plugin.ViewEventListener):
         """
         # Remove from active views when closed
         view_id = self.view.id()
-        if view_id in ACTIVE_VIEWS:
-            del ACTIVE_VIEWS[view_id]
+        ACTIVE_VIEWS.pop(view_id, None)
 
     def _update_regions(self):
         """Update coverage regions for this view."""

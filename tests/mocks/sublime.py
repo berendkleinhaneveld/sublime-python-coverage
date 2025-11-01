@@ -24,7 +24,7 @@ HIDE_ON_MOUSE_MOVE_AWAY = 1
 class Region:
     """Mock Region class."""
 
-    def __init__(self, a: int, b: int = None):
+    def __init__(self, a: int, b: Optional[int] = None):
         self.a = a
         self.b = b if b is not None else a
 
