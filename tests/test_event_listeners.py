@@ -1,8 +1,6 @@
 """Tests for event listeners."""
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
-import pytest
+from unittest.mock import patch
 
 
 class TestPythonCoverageDataFileListener:
@@ -14,10 +12,12 @@ class TestPythonCoverageDataFileListener:
 
         assert PythonCoverageDataFileListener.is_applicable({}) is True
 
-    def test_update_available_coverage_files_disabled(self, mocker, sublime_window, temp_coverage_file):
+    def test_update_available_coverage_files_disabled(
+        self, mocker, sublime_window, temp_coverage_file
+    ):
         """Test update_available_coverage_files when feature is disabled."""
-        from python_coverage import PythonCoverageDataFileListener, CoverageManager
         import python_coverage as pc
+        from python_coverage import CoverageManager, PythonCoverageDataFileListener
 
         # Initialize manager
         pc.COVERAGE_MANAGER = CoverageManager()
@@ -34,16 +34,11 @@ class TestPythonCoverageDataFileListener:
             assert len(pc.COVERAGE_MANAGER.coverage_files) == 0
 
     def test_update_available_coverage_files_enabled(
-        self,
-        mocker,
-        sublime_window,
-        tmp_path,
-        mock_file_observer,
-        mock_coverage_data
+        self, mocker, sublime_window, tmp_path, mock_file_observer, mock_coverage_data
     ):
         """Test update_available_coverage_files when feature is enabled."""
-        from python_coverage import PythonCoverageDataFileListener, CoverageManager
         import python_coverage as pc
+        from python_coverage import CoverageManager, PythonCoverageDataFileListener
 
         # Create a .coverage file in the temp directory
         coverage_file = tmp_path / ".coverage"

@@ -1,7 +1,6 @@
 """Tests for plugin commands."""
-from unittest.mock import patch
 
-import pytest
+from unittest.mock import patch
 
 
 def test_toggle_missing_lines_command_enables(mocker):
@@ -11,10 +10,9 @@ def test_toggle_missing_lines_command_enables(mocker):
     mock_settings = Settings()
     mock_settings["show_missing_lines"] = False  # Currently disabled
 
-    with patch("sublime.load_settings", return_value=mock_settings), \
-         patch("sublime.save_settings") as mock_save, \
-         patch("builtins.print") as mock_print:
-
+    with patch("sublime.load_settings", return_value=mock_settings), patch(
+        "sublime.save_settings"
+    ) as mock_save, patch("builtins.print") as mock_print:
         from python_coverage import ToggleMissingLinesCommand
 
         cmd = ToggleMissingLinesCommand()
@@ -34,10 +32,9 @@ def test_toggle_missing_lines_command_disables(mocker):
     mock_settings = Settings()
     mock_settings["show_missing_lines"] = True  # Currently enabled
 
-    with patch("sublime.load_settings", return_value=mock_settings), \
-         patch("sublime.save_settings") as mock_save, \
-         patch("builtins.print") as mock_print:
-
+    with patch("sublime.load_settings", return_value=mock_settings), patch(
+        "sublime.save_settings"
+    ) as mock_save, patch("builtins.print") as mock_print:
         from python_coverage import ToggleMissingLinesCommand
 
         cmd = ToggleMissingLinesCommand()

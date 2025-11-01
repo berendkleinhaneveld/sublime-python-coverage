@@ -1,8 +1,6 @@
 """Tests for CoverageManager class."""
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
-import pytest
+from pathlib import Path
 
 
 def test_coverage_manager_initialization(mock_file_observer):
@@ -19,9 +17,7 @@ def test_coverage_manager_initialization(mock_file_observer):
 
 
 def test_coverage_manager_add_coverage_file(
-    temp_coverage_file,
-    mock_coverage_data,
-    mock_file_observer
+    temp_coverage_file, mock_coverage_data, mock_file_observer
 ):
     """Test adding a coverage file to the manager."""
     from python_coverage import CoverageManager
@@ -36,9 +32,7 @@ def test_coverage_manager_add_coverage_file(
 
 
 def test_coverage_manager_add_duplicate_coverage_file(
-    temp_coverage_file,
-    mock_coverage_data,
-    mock_file_observer
+    temp_coverage_file, mock_coverage_data, mock_file_observer
 ):
     """Test adding a duplicate coverage file returns False."""
     from python_coverage import CoverageManager
@@ -66,9 +60,7 @@ def test_coverage_manager_add_nonexistent_file(mock_file_observer):
 
 
 def test_coverage_manager_remove_coverage_file(
-    temp_coverage_file,
-    mock_coverage_data,
-    mock_file_observer
+    temp_coverage_file, mock_coverage_data, mock_file_observer
 ):
     """Test removing a coverage file from the manager."""
     from python_coverage import CoverageManager
@@ -84,9 +76,7 @@ def test_coverage_manager_remove_coverage_file(
 
 
 def test_coverage_manager_get_coverage_for_file(
-    temp_coverage_file,
-    mock_coverage_data,
-    mock_file_observer
+    temp_coverage_file, mock_coverage_data, mock_file_observer
 ):
     """Test getting coverage for a file."""
     from python_coverage import CoverageManager
@@ -107,11 +97,7 @@ def test_coverage_manager_get_coverage_for_file(
     assert cov is not None
 
 
-def test_coverage_manager_cleanup_stale_files(
-    tmp_path,
-    mock_coverage_data,
-    mock_file_observer
-):
+def test_coverage_manager_cleanup_stale_files(tmp_path, mock_coverage_data, mock_file_observer):
     """Test cleanup of stale coverage files."""
     from python_coverage import CoverageManager
 
@@ -133,11 +119,7 @@ def test_coverage_manager_cleanup_stale_files(
     assert coverage_file not in manager.coverage_files
 
 
-def test_coverage_manager_shutdown(
-    temp_coverage_file,
-    mock_coverage_data,
-    mock_file_observer
-):
+def test_coverage_manager_shutdown(temp_coverage_file, mock_coverage_data, mock_file_observer):
     """Test shutting down the coverage manager."""
     from python_coverage import CoverageManager
 

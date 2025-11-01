@@ -23,8 +23,30 @@ coverage = "^7.2"
 watchdog = "^3.0"
 
 [tool.ruff]
+# Target Python 3.8 for Sublime Text compatibility
+target-version = "py38"
+
+# Configure line length to match common Python style
+line-length = 100
+
+# Exclude common directories
+exclude = [
+    ".git",
+    ".pytest_cache",
+    ".ruff_cache",
+    "__pycache__",
+    "libs",
+    "htmlcov",
+]
+
+[tool.ruff.lint]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
 select = ["E", "F", "I", "B", "N", "A", "PTH"]
+
+[tool.ruff.format]
+# Format code to be compatible with Python 3.8
+quote-style = "double"
+indent-style = "space"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

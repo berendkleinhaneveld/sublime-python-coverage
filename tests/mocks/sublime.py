@@ -1,15 +1,18 @@
 """Mock sublime module for testing."""
+
 from typing import Any, Callable, Optional
 
 
 class RegionFlags:
     """Mock RegionFlags."""
+
     HIDDEN = 1
     PERSISTENT = 16
 
 
 class HoverZone:
     """Mock HoverZone."""
+
     TEXT = 1
     GUTTER = 2
     MARGIN = 3
@@ -66,21 +69,9 @@ class View:
         """Return lines within the region."""
         return self._lines
 
-    def add_regions(
-        self,
-        key: str,
-        regions: list,
-        scope: str = "",
-        icon: str = "",
-        flags: int = 0
-    ):
+    def add_regions(self, key: str, regions: list, scope: str = "", icon: str = "", flags: int = 0):
         """Add regions to the view."""
-        self._regions[key] = {
-            "regions": regions,
-            "scope": scope,
-            "icon": icon,
-            "flags": flags
-        }
+        self._regions[key] = {"regions": regions, "scope": scope, "icon": icon, "flags": flags}
 
     def erase_regions(self, key: str):
         """Erase regions from the view."""
@@ -100,7 +91,7 @@ class View:
         location: int = -1,
         max_width: int = 320,
         max_height: int = 240,
-        on_navigate: Optional[Callable] = None
+        on_navigate: Optional[Callable] = None,
     ):
         """Show a popup."""
         pass

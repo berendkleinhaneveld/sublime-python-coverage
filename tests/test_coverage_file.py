@@ -1,13 +1,9 @@
 """Tests for CoverageFile class."""
-from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-import pytest
 
 
 def test_coverage_file_initialization(temp_coverage_file, mock_coverage_data, mock_file_observer):
     """Test CoverageFile initializes correctly."""
-    from python_coverage import CoverageManager, CoverageFile
+    from python_coverage import CoverageFile, CoverageManager
 
     # Create a manager
     manager = CoverageManager()
@@ -23,7 +19,7 @@ def test_coverage_file_initialization(temp_coverage_file, mock_coverage_data, mo
 
 def test_coverage_file_update(temp_coverage_file, mock_coverage_data, mock_file_observer):
     """Test CoverageFile.update() re-reads data."""
-    from python_coverage import CoverageManager, CoverageFile
+    from python_coverage import CoverageFile, CoverageManager
 
     manager = CoverageManager()
     manager.initialize()
@@ -38,7 +34,7 @@ def test_coverage_file_update(temp_coverage_file, mock_coverage_data, mock_file_
 
 def test_coverage_file_in_coverage_data(temp_coverage_file, mock_coverage_data, mock_file_observer):
     """Test CoverageFile.in_coverage_data() checks file presence."""
-    from python_coverage import CoverageManager, CoverageFile
+    from python_coverage import CoverageFile, CoverageManager
 
     manager = CoverageManager()
     manager.initialize()
@@ -54,10 +50,10 @@ def test_coverage_file_missing_lines_success(
     mock_coverage_data,
     mock_python_parser,
     mock_file_observer,
-    sample_python_code
+    sample_python_code,
 ):
     """Test CoverageFile.missing_lines() calculates missing lines correctly."""
-    from python_coverage import CoverageManager, CoverageFile
+    from python_coverage import CoverageFile, CoverageManager
 
     manager = CoverageManager()
     manager.initialize()
@@ -73,13 +69,11 @@ def test_coverage_file_missing_lines_success(
 
 
 def test_coverage_file_missing_lines_data_error(
-    temp_coverage_file,
-    mock_coverage_data,
-    mock_file_observer
+    temp_coverage_file, mock_coverage_data, mock_file_observer
 ):
     """Test CoverageFile.missing_lines() handles DataError."""
-    from python_coverage import CoverageManager, CoverageFile
     from coverage.exceptions import DataError
+    from python_coverage import CoverageFile, CoverageManager
 
     manager = CoverageManager()
     manager.initialize()
@@ -95,12 +89,10 @@ def test_coverage_file_missing_lines_data_error(
 
 
 def test_coverage_file_missing_lines_no_data(
-    temp_coverage_file,
-    mock_coverage_data,
-    mock_file_observer
+    temp_coverage_file, mock_coverage_data, mock_file_observer
 ):
     """Test CoverageFile.missing_lines() handles no coverage data."""
-    from python_coverage import CoverageManager, CoverageFile
+    from python_coverage import CoverageFile, CoverageManager
 
     manager = CoverageManager()
     manager.initialize()
@@ -120,10 +112,10 @@ def test_coverage_file_missing_lines_all_covered(
     mock_coverage_data,
     mock_python_parser,
     mock_file_observer,
-    sample_python_code
+    sample_python_code,
 ):
     """Test CoverageFile.missing_lines() when all lines are covered."""
-    from python_coverage import CoverageManager, CoverageFile
+    from python_coverage import CoverageFile, CoverageManager
 
     manager = CoverageManager()
     manager.initialize()
@@ -144,10 +136,10 @@ def test_coverage_file_missing_lines_sorted_descending(
     mock_coverage_data,
     mock_python_parser,
     mock_file_observer,
-    sample_python_code
+    sample_python_code,
 ):
     """Test CoverageFile.missing_lines() returns lines in descending order."""
-    from python_coverage import CoverageManager, CoverageFile
+    from python_coverage import CoverageFile, CoverageManager
 
     manager = CoverageManager()
     manager.initialize()

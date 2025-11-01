@@ -30,9 +30,7 @@ logger = logging.getLogger("sublime-python-coverage")
 logger.setLevel(logging.INFO)
 # Log to Sublime console
 handler = logging.StreamHandler()
-handler.setFormatter(
-    logging.Formatter("Python Coverage [%(levelname)s]: %(message)s")
-)
+handler.setFormatter(logging.Formatter("Python Coverage [%(levelname)s]: %(message)s"))
 logger.addHandler(handler)
 
 
@@ -65,8 +63,8 @@ class CoverageManager:
             return
 
         try:
-            from watchdog.observers import Observer
             from watchdog.events import FileSystemEventHandler
+            from watchdog.observers import Observer
 
             # Create observer but only start if requested
             self.file_observer = Observer()
@@ -96,15 +94,21 @@ class CoverageManager:
                     self.manager._schedule_debounced_update(self.file)
 
                 def on_modified(self, event):
-                    if event.src_path.endswith(".coverage") and str(event.src_path) == str(self.file):
+                    is_coverage = event.src_path.endswith(".coverage")
+                    is_our_file = str(event.src_path) == str(self.file)
+                    if is_coverage and is_our_file:
                         self._schedule_update("modified")
 
                 def on_created(self, event):
-                    if event.src_path.endswith(".coverage") and str(event.src_path) == str(self.file):
+                    is_coverage = event.src_path.endswith(".coverage")
+                    is_our_file = str(event.src_path) == str(self.file)
+                    if is_coverage and is_our_file:
                         self._schedule_update("created")
 
                 def on_deleted(self, event):
-                    if event.src_path.endswith(".coverage") and str(event.src_path) == str(self.file):
+                    is_coverage = event.src_path.endswith(".coverage")
+                    is_our_file = str(event.src_path) == str(self.file)
+                    if is_coverage and is_our_file:
                         logger.debug(f"Coverage file deleted: {self.file}")
                         # File might be recreated soon, schedule update to check
                         self._schedule_update("deleted")
@@ -134,7 +138,7 @@ class CoverageManager:
             timer = threading.Timer(
                 COVERAGE_UPDATE_DEBOUNCE_DELAY,
                 self._perform_debounced_update,
-                args=(coverage_file_path,)
+                args=(coverage_file_path,),
             )
             timer.daemon = True
             self._update_timers[coverage_file_path] = timer
@@ -212,10 +216,7 @@ class CoverageManager:
             return True
 
         except Exception as e:
-            logger.error(
-                f"Failed to add coverage file {coverage_file_path}: {e}",
-                exc_info=True
-            )
+            logger.error(f"Failed to add coverage file {coverage_file_path}: {e}", exc_info=True)
             return False
 
     def remove_coverage_file(self, coverage_file_path: Path) -> bool:
@@ -248,10 +249,7 @@ class CoverageManager:
             return True
 
         except Exception as e:
-            logger.error(
-                f"Failed to remove coverage file {coverage_file_path}: {e}",
-                exc_info=True
-            )
+            logger.error(f"Failed to remove coverage file {coverage_file_path}: {e}", exc_info=True)
             return False
 
     def get_coverage_file(self, coverage_file_path: Path) -> Optional["CoverageFile"]:
@@ -284,10 +282,7 @@ class CoverageManager:
 
     def cleanup_stale_files(self):
         """Remove coverage files that no longer exist."""
-        stale_files = [
-            path for path in self.coverage_files.keys()
-            if not path.exists()
-        ]
+        stale_files = [path for path in self.coverage_files.keys() if not path.exists()]
 
         for path in stale_files:
             logger.info(f"Cleaning up stale coverage file: {path}")
@@ -336,8 +331,7 @@ def plugin_loaded():
         packaging_wheel = HERE / "libs" / "packaging-23.1-py3-none-any.whl"
         if not packaging_wheel.exists():
             sublime.error_message(
-                "Python Coverage: Missing packaging library.\n"
-                "Please reinstall the plugin."
+                "Python Coverage: Missing packaging library.\nPlease reinstall the plugin."
             )
             return
 
@@ -438,9 +432,7 @@ class CoverageFile:
             if manager.FileWatcher and manager.file_observer:
                 self.handler = manager.FileWatcher(manager, coverage_file)
                 self.watcher = manager.file_observer.schedule(
-                    self.handler,
-                    str(coverage_file.parent),
-                    recursive=False
+                    self.handler, str(coverage_file.parent), recursive=False
                 )
                 logger.debug(f"File watcher scheduled for {coverage_file}")
 
@@ -465,7 +457,9 @@ class CoverageFile:
                         time.sleep(0.1 * (attempt + 1))  # Exponential backoff
                         continue
                     else:
-                        logger.warning(f"Coverage file does not exist after retries: {self.coverage_file}")
+                        logger.warning(
+                            f"Coverage file does not exist after retries: {self.coverage_file}"
+                        )
                         return False
 
                 self.data.read()
@@ -531,9 +525,10 @@ class CoverageFile:
         Returns:
             List of missing line numbers (descending order), or None if error
         """
+        import hashlib
+
         from coverage.exceptions import DataError
         from coverage.parser import PythonParser
-        import hashlib
 
         try:
             if not self.data:
