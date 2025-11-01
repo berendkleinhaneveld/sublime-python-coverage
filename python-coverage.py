@@ -1,5 +1,6 @@
 import logging
 import sys
+import threading
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -20,6 +21,10 @@ ACTIVE_VIEWS = {}  # Map view_id -> PythonCoverageEventListener instance
 
 SETTINGS_FILE = "python-coverage.sublime-settings"
 
+# Debounce delay for coverage file updates (in seconds)
+# This handles rapid file system events (delete->create->write)
+COVERAGE_UPDATE_DEBOUNCE_DELAY = 0.5
+
 # Set up logging
 logger = logging.getLogger("sublime-python-coverage")
 logger.setLevel(logging.INFO)
@@ -35,6 +40,7 @@ class CoverageManager:
     """
     Manages coverage files and file watching.
     Centralizes resource management to prevent leaks.
+    Includes debouncing to handle rapid file system events gracefully.
     """
 
     def __init__(self):
@@ -42,9 +48,18 @@ class CoverageManager:
         self.file_observer = None
         self.FileWatcher = None
         self._initialized = False
+        # Debounce timers for each coverage file
+        self._update_timers: Dict[Path, threading.Timer] = {}
+        self._timer_lock = threading.Lock()
 
-    def initialize(self):
-        """Initialize the file observer and watcher class."""
+    def initialize(self, start_observer=True):
+        """
+        Initialize the file observer and watcher class.
+
+        Args:
+            start_observer: Whether to start the file observer immediately.
+                          If False, it will be started when coverage files are added.
+        """
         if self._initialized:
             logger.warning("CoverageManager already initialized")
             return
@@ -53,8 +68,11 @@ class CoverageManager:
             from watchdog.observers import Observer
             from watchdog.events import FileSystemEventHandler
 
+            # Create observer but only start if requested
             self.file_observer = Observer()
-            self.file_observer.start()
+            if start_observer:
+                self.file_observer.start()
+                logger.debug("File observer started")
 
             class _FileWatcher(FileSystemEventHandler):
                 def __init__(self, manager, file):
@@ -62,27 +80,34 @@ class CoverageManager:
                     self.manager = manager
                     self.file = file
 
-                def _update(self, event):
-                    if not event.src_path.endswith(".coverage"):
-                        return
+                def _schedule_update(self, event_type="modified"):
+                    """
+                    Schedule a debounced update for the coverage file.
 
-                    if str(event.src_path) != str(self.file):
-                        return
+                    This handles the common pattern where coverage.py:
+                    1. Deletes .coverage file
+                    2. Creates new .coverage file
+                    3. Writes data to it
 
-                    try:
-                        if self.file in self.manager.coverage_files:
-                            self.manager.coverage_files[self.file].update()
-                            # Update all active views
-                            for view_listener in ACTIVE_VIEWS.values():
-                                view_listener._update_regions()
-                    except Exception as e:
-                        logger.error(f"Error updating coverage data: {e}", exc_info=True)
+                    By debouncing, we wait for the file system events to settle
+                    before attempting to reload coverage data.
+                    """
+                    logger.debug(f"Coverage file {event_type}: {self.file}")
+                    self.manager._schedule_debounced_update(self.file)
 
                 def on_modified(self, event):
-                    self._update(event)
+                    if event.src_path.endswith(".coverage") and str(event.src_path) == str(self.file):
+                        self._schedule_update("modified")
 
                 def on_created(self, event):
-                    self._update(event)
+                    if event.src_path.endswith(".coverage") and str(event.src_path) == str(self.file):
+                        self._schedule_update("created")
+
+                def on_deleted(self, event):
+                    if event.src_path.endswith(".coverage") and str(event.src_path) == str(self.file):
+                        logger.debug(f"Coverage file deleted: {self.file}")
+                        # File might be recreated soon, schedule update to check
+                        self._schedule_update("deleted")
 
             self.FileWatcher = _FileWatcher
             self._initialized = True
@@ -92,9 +117,74 @@ class CoverageManager:
             logger.error(f"Failed to initialize CoverageManager: {e}", exc_info=True)
             raise
 
+    def _schedule_debounced_update(self, coverage_file_path: Path):
+        """
+        Schedule a debounced update for a coverage file.
+
+        If an update is already scheduled, cancel it and schedule a new one.
+        This ensures we only update once after rapid file system events settle.
+        """
+        with self._timer_lock:
+            # Cancel existing timer if any
+            if coverage_file_path in self._update_timers:
+                self._update_timers[coverage_file_path].cancel()
+                logger.debug(f"Cancelled pending update for {coverage_file_path}")
+
+            # Schedule new update
+            timer = threading.Timer(
+                COVERAGE_UPDATE_DEBOUNCE_DELAY,
+                self._perform_debounced_update,
+                args=(coverage_file_path,)
+            )
+            timer.daemon = True
+            self._update_timers[coverage_file_path] = timer
+            timer.start()
+            logger.debug(f"Scheduled debounced update for {coverage_file_path}")
+
+    def _perform_debounced_update(self, coverage_file_path: Path):
+        """
+        Perform the actual coverage file update after debounce delay.
+
+        Handles cases where file might have been deleted and not recreated,
+        or is in the process of being written.
+        """
+        try:
+            with self._timer_lock:
+                # Remove timer from tracking
+                if coverage_file_path in self._update_timers:
+                    del self._update_timers[coverage_file_path]
+
+            # Check if file still exists
+            if not coverage_file_path.exists():
+                logger.info(f"Coverage file no longer exists, removing: {coverage_file_path}")
+                self.remove_coverage_file(coverage_file_path)
+                return
+
+            # Check if we're still tracking this file
+            if coverage_file_path not in self.coverage_files:
+                logger.debug(f"Coverage file no longer tracked: {coverage_file_path}")
+                return
+
+            # Update the coverage data
+            cov_file = self.coverage_files[coverage_file_path]
+            cov_file.update()
+            logger.debug(f"Coverage data updated for {coverage_file_path}")
+
+            # Update all active views
+            for view_listener in ACTIVE_VIEWS.values():
+                try:
+                    view_listener._update_regions()
+                except Exception as e:
+                    logger.error(f"Error updating view regions: {e}", exc_info=True)
+
+        except Exception as e:
+            logger.error(f"Error in debounced update for {coverage_file_path}: {e}", exc_info=True)
+
     def add_coverage_file(self, coverage_file_path: Path) -> bool:
         """
         Add a coverage file to track.
+
+        If this is the first coverage file and observer isn't running, start it.
 
         Args:
             coverage_file_path: Path to the .coverage file
@@ -110,6 +200,11 @@ class CoverageManager:
             if not coverage_file_path.exists():
                 logger.warning(f"Coverage file does not exist: {coverage_file_path}")
                 return False
+
+            # Start observer if this is the first file and observer isn't running
+            if not self.coverage_files and self.file_observer and not self.file_observer.is_alive():
+                self.file_observer.start()
+                logger.info("Started file observer (first coverage file added)")
 
             cov_file = CoverageFile(self, coverage_file_path)
             self.coverage_files[coverage_file_path] = cov_file
@@ -127,6 +222,8 @@ class CoverageManager:
         """
         Remove a coverage file and cleanup its resources.
 
+        If this is the last coverage file, stop the observer to save resources.
+
         Args:
             coverage_file_path: Path to the .coverage file
 
@@ -142,6 +239,12 @@ class CoverageManager:
             cov_file.cleanup()
             del self.coverage_files[coverage_file_path]
             logger.info(f"Removed coverage file: {coverage_file_path}")
+
+            # Stop observer if no more files being tracked
+            if not self.coverage_files and self.file_observer and self.file_observer.is_alive():
+                self.file_observer.stop()
+                logger.info("Stopped file observer (no coverage files remaining)")
+
             return True
 
         except Exception as e:
@@ -193,6 +296,16 @@ class CoverageManager:
     def shutdown(self):
         """Shutdown the coverage manager and cleanup all resources."""
         logger.info("Shutting down CoverageManager")
+
+        # Cancel all pending update timers
+        with self._timer_lock:
+            for coverage_file_path, timer in list(self._update_timers.items()):
+                try:
+                    timer.cancel()
+                    logger.debug(f"Cancelled pending timer for {coverage_file_path}")
+                except Exception as e:
+                    logger.error(f"Error cancelling timer: {e}")
+            self._update_timers.clear()
 
         # Remove all coverage files (which will cleanup watchers)
         for coverage_file_path in list(self.coverage_files.keys()):
@@ -292,6 +405,8 @@ def plugin_unloaded():
 class CoverageFile:
     """
     Represents a .coverage file and manages its data and file watcher.
+
+    Uses lazy loading and caching to handle rapid file updates gracefully.
     """
 
     def __init__(self, manager: CoverageManager, coverage_file: Path):
@@ -310,10 +425,14 @@ class CoverageFile:
         self.handler = None
         self.watcher = None
 
+        # Cache for parsed Python statements: {file_path: (mtime, statements)}
+        self._statement_cache: Dict[str, tuple] = {}
+
         try:
-            # Load coverage data
+            # Lazy load coverage data - load on first use
+            # This is safer when file might be in process of being created
             self.data = coverage.Coverage(data_file=str(coverage_file)).get_data()
-            self.data.read()
+            self._load_data_with_retry()
 
             # Set up file watcher
             if manager.FileWatcher and manager.file_observer:
@@ -329,12 +448,54 @@ class CoverageFile:
             logger.error(f"Error initializing CoverageFile for {coverage_file}: {e}")
             raise
 
+    def _load_data_with_retry(self, max_retries=3):
+        """
+        Load coverage data with retry logic.
+
+        Coverage files might be in the process of being written,
+        so we retry a few times with a small delay.
+        """
+        import time
+
+        for attempt in range(max_retries):
+            try:
+                if not self.coverage_file.exists():
+                    if attempt < max_retries - 1:
+                        logger.debug(f"Coverage file not ready, retry {attempt + 1}/{max_retries}")
+                        time.sleep(0.1 * (attempt + 1))  # Exponential backoff
+                        continue
+                    else:
+                        logger.warning(f"Coverage file does not exist after retries: {self.coverage_file}")
+                        return False
+
+                self.data.read()
+                logger.debug(f"Successfully loaded coverage data for {self.coverage_file}")
+                return True
+
+            except Exception as e:
+                if attempt < max_retries - 1:
+                    logger.debug(f"Error loading coverage data (attempt {attempt + 1}): {e}")
+                    time.sleep(0.1 * (attempt + 1))
+                else:
+                    logger.error(f"Failed to load coverage data after {max_retries} attempts: {e}")
+                    raise
+
+        return False
+
     def update(self):
-        """Re-read coverage data from disk."""
+        """
+        Re-read coverage data from disk.
+
+        Uses retry logic to handle cases where file is being rewritten.
+        Invalidates statement cache since coverage data changed.
+        """
         try:
             if self.data:
-                self.data.read()
-                logger.debug(f"Updated coverage data for {self.coverage_file}")
+                success = self._load_data_with_retry()
+                if success:
+                    # Invalidate statement cache when coverage data changes
+                    self._statement_cache.clear()
+                    logger.debug(f"Updated coverage data for {self.coverage_file}")
         except Exception as e:
             logger.error(f"Error updating coverage data: {e}", exc_info=True)
 
@@ -360,6 +521,9 @@ class CoverageFile:
         """
         Calculate missing lines for a given file.
 
+        Uses cached parsed statements when file hasn't changed to avoid
+        reparsing on every view activation.
+
         Args:
             file: Path to the source file
             text: Source code text
@@ -369,6 +533,7 @@ class CoverageFile:
         """
         from coverage.exceptions import DataError
         from coverage.parser import PythonParser
+        import hashlib
 
         try:
             if not self.data:
@@ -386,10 +551,23 @@ class CoverageFile:
             return None
 
         try:
-            # Parse the file to find all executable statements
-            python_parser = PythonParser(text=text)
-            python_parser.parse_source()
-            statements = python_parser.statements
+            # Check cache for parsed statements
+            # Use hash of text content as cache key since we get text from view
+            text_hash = hashlib.md5(text.encode()).hexdigest()
+            cache_key = f"{file}:{text_hash}"
+
+            if cache_key in self._statement_cache:
+                statements = self._statement_cache[cache_key]
+                logger.debug(f"Using cached statements for {file}")
+            else:
+                # Parse the file to find all executable statements
+                python_parser = PythonParser(text=text)
+                python_parser.parse_source()
+                statements = python_parser.statements
+
+                # Cache the parsed statements
+                self._statement_cache[cache_key] = statements
+                logger.debug(f"Cached statements for {file}")
 
             # Calculate missing lines (statements not executed)
             missing = sorted(list(statements - set(lines)), reverse=True)
@@ -410,6 +588,7 @@ class CoverageFile:
 
             self.handler = None
             self.data = None
+            self._statement_cache.clear()
 
         except Exception as e:
             logger.error(f"Error cleaning up CoverageFile: {e}", exc_info=True)
