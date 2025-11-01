@@ -17,6 +17,10 @@ ruff = "*"
 pytest = "^7.0"
 pytest-cov = "^4.0"
 pytest-mock = "^3.0"
+# Runtime dependencies needed for testing
+# (bundled as wheels in libs/ for Sublime Text runtime)
+coverage = "^7.2"
+watchdog = "^3.0"
 
 [tool.ruff]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
