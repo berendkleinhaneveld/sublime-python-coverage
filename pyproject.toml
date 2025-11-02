@@ -1,19 +1,24 @@
-[tool.poetry]
+[project]
 name = "python-coverage"
 version = "0.1.0"
 description = "Sublime plugin for showing python code coverage misses"
-authors = ["Berend Klein Haneveld <berendkleinhaneveld@gmail.com>"]
+authors = [
+    {name = "Berend Klein Haneveld", email = "berendkleinhaneveld@gmail.com"}
+]
 readme = "README.md"
+requires-python = ">=3.8"
 
-[tool.poetry.dependencies]
-python = "^3.8"
-# The poetry sections only serve as specification for the
-# dev dependencies needed for development of the plugin
+[project.optional-dependencies]
+dev = [
+    "black",
+    "pre-commit",
+    "ruff",
+    "pytest>=7.0.0",
+]
 
-[tool.poetry.group.dev.dependencies]
-black = "*"
-pre-commit = "*"
-ruff = "*"
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.ruff]
 # Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
