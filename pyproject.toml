@@ -27,5 +27,62 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.ruff]
-# Enable pycodestyle (`E`) and Pyflakes (`F`) codes by default.
-select = ["E", "F", "I", "B", "N", "A", "PTH"]
+# Target Python 3.8 for Sublime Text compatibility
+target-version = "py38"
+
+# Configure line length to match common Python style
+line-length = 100
+
+# Exclude common directories
+exclude = [
+    ".git",
+    ".pytest_cache",
+    ".ruff_cache",
+    "__pycache__",
+    "libs",
+    "htmlcov",
+]
+
+[tool.ruff.lint]
+# Extend default rules with additional checks
+extend-select = ["E", "F", "I", "B", "N", "A", "PTH", "RUF", "ARG"]
+
+[tool.ruff.lint.per-file-ignores]
+# Test files can have unused arguments (fixtures) and unused imports (for mocking)
+"tests/**/*.py" = ["ARG"]
+"tests/mocks/*.py" = ["ARG"]
+
+[tool.ruff.format]
+# Format code to be compatible with Python 3.8
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--verbose",
+    "--cov=.",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "tests/*",
+    "libs/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
