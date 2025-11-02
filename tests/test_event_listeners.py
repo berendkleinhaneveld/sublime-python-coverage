@@ -52,7 +52,16 @@ class TestPythonCoverageDataFileListener:
         pc.COVERAGE_MANAGER.initialize()
 
         mock_settings = mocker.MagicMock()
-        mock_settings.get.return_value = True  # show_missing_lines = True
+
+        # Configure get() to return appropriate values based on key
+        def settings_get(key, default=None):
+            if key == "show_missing_lines":
+                return True
+            if key == "coverage_file_name":
+                return ".coverage"
+            return default
+
+        mock_settings.get.side_effect = settings_get
 
         with patch("sublime.load_settings", return_value=mock_settings):
             listener = PythonCoverageDataFileListener()
@@ -81,7 +90,16 @@ class TestPythonCoverageDataFileListener:
         pc.COVERAGE_MANAGER.initialize()
 
         mock_settings = mocker.MagicMock()
-        mock_settings.get.return_value = True
+
+        # Configure get() to return appropriate values based on key
+        def settings_get(key, default=None):
+            if key == "show_missing_lines":
+                return True
+            if key == "coverage_file_name":
+                return ".coverage"
+            return default
+
+        mock_settings.get.side_effect = settings_get
 
         with patch("sublime.load_settings", return_value=mock_settings):
             listener = PythonCoverageDataFileListener()
@@ -109,7 +127,16 @@ class TestPythonCoverageDataFileListener:
         pc.COVERAGE_MANAGER.initialize()
 
         mock_settings = mocker.MagicMock()
-        mock_settings.get.return_value = True
+
+        # Configure get() to return appropriate values based on key
+        def settings_get(key, default=None):
+            if key == "show_missing_lines":
+                return True
+            if key == "coverage_file_name":
+                return ".coverage"
+            return default
+
+        mock_settings.get.side_effect = settings_get
 
         with patch("sublime.load_settings", return_value=mock_settings):
             listener = PythonCoverageDataFileListener()
@@ -168,7 +195,16 @@ class TestPythonCoverageDataFileListener:
         pc.COVERAGE_MANAGER.initialize()
 
         mock_settings = mocker.MagicMock()
-        mock_settings.get.return_value = True
+
+        # Configure get() to return appropriate values based on key
+        def settings_get(key, default=None):
+            if key == "show_missing_lines":
+                return True
+            if key == "coverage_file_name":
+                return ".coverage"
+            return default
+
+        mock_settings.get.side_effect = settings_get
 
         with patch("sublime.load_settings", return_value=mock_settings):
             listener = PythonCoverageDataFileListener()

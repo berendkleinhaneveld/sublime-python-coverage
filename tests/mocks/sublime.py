@@ -44,6 +44,7 @@ class View:
     def __init__(self, file_name: Optional[str] = None):
         self._file_name = file_name
         self._regions = {}
+        self._status = {}
         self._content = ""
         self._size = 0
         self._lines = []
@@ -94,6 +95,19 @@ class View:
         if key in self._regions:
             return self._regions[key]["regions"]
         return []
+
+    def set_status(self, key: str, value: str):
+        """Set status bar text."""
+        self._status[key] = value
+
+    def erase_status(self, key: str):
+        """Erase status bar text."""
+        if key in self._status:
+            del self._status[key]
+
+    def get_status(self, key: str) -> str:
+        """Get status bar text."""
+        return self._status.get(key, "")
 
     def show_popup(
         self,

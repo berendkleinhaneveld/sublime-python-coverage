@@ -21,10 +21,6 @@ ACTIVE_VIEWS = {}  # Map view_id -> PythonCoverageEventListener instance
 
 SETTINGS_FILE = "python-coverage.sublime-settings"
 
-# Debounce delay for coverage file updates (in seconds)
-# This handles rapid file system events (delete->create->write)
-COVERAGE_UPDATE_DEBOUNCE_DELAY = 0.5
-
 # Set up logging
 logger = logging.getLogger("sublime-python-coverage")
 logger.setLevel(logging.INFO)
@@ -32,6 +28,24 @@ logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
 handler.setFormatter(logging.Formatter("Python Coverage [%(levelname)s]: %(message)s"))
 logger.addHandler(handler)
+
+
+def get_setting(key: str, default=None):
+    """
+    Get a setting value from the plugin settings file.
+
+    Uses a try-except to handle mocked settings objects in tests.
+    """
+    try:
+        settings = sublime.load_settings(SETTINGS_FILE)
+        # Check if this is the actual settings object
+        if hasattr(settings, "get"):
+            value = settings.get(key)
+            # Return default if key not found (value is None)
+            return value if value is not None else default
+        return default
+    except Exception:
+        return default
 
 
 class CoverageManager:
@@ -135,8 +149,9 @@ class CoverageManager:
                 logger.debug(f"Cancelled pending update for {coverage_file_path}")
 
             # Schedule new update
+            debounce_delay = get_setting("update_debounce_delay", 0.5)
             timer = threading.Timer(
-                COVERAGE_UPDATE_DEBOUNCE_DELAY,
+                debounce_delay,
                 self._perform_debounced_update,
                 args=(coverage_file_path,),
             )
@@ -640,9 +655,10 @@ class PythonCoverageDataFileListener(sublime_plugin.EventListener):
             return
 
         # Remove coverage files for folders in this project
+        coverage_file_name = get_setting("coverage_file_name", ".coverage")
         for folder in window.folders():
             folder = Path(folder)
-            coverage_file = folder / ".coverage"
+            coverage_file = folder / coverage_file_name
             if coverage_file in COVERAGE_MANAGER.coverage_files:
                 COVERAGE_MANAGER.remove_coverage_file(coverage_file)
 
@@ -662,9 +678,10 @@ class PythonCoverageDataFileListener(sublime_plugin.EventListener):
             return
 
         try:
+            coverage_file_name = get_setting("coverage_file_name", ".coverage")
             for folder in window.folders():
                 folder = Path(folder)
-                coverage_file = folder / ".coverage"
+                coverage_file = folder / coverage_file_name
 
                 # Add coverage file if it exists and not already tracked
                 if coverage_file.is_file():
@@ -732,10 +749,12 @@ class PythonCoverageEventListener(sublime_plugin.ViewEventListener):
         """Update coverage regions for this view."""
         file_name = self.view.file_name()
         if not file_name:
+            self._clear_status_bar()
             return
 
         if not COVERAGE_MANAGER:
             self.view.erase_regions(key="python-coverage")
+            self._clear_status_bar()
             return
 
         try:
@@ -743,6 +762,7 @@ class PythonCoverageEventListener(sublime_plugin.ViewEventListener):
             cov = COVERAGE_MANAGER.get_coverage_for_file(file_name)
             if not cov:
                 self.view.erase_regions(key="python-coverage")
+                self._clear_status_bar()
                 return
 
             # Get file content
@@ -751,27 +771,63 @@ class PythonCoverageEventListener(sublime_plugin.ViewEventListener):
 
             # Calculate missing lines
             missing = cov.missing_lines(file_name, text)
+
+            # Calculate total executable lines for coverage percentage
+            from coverage.parser import PythonParser
+
+            python_parser = PythonParser(text=text)
+            python_parser.parse_source()
+            total_lines = len(python_parser.statements)
+
             if not missing:
                 self.view.erase_regions(key="python-coverage")
+                self._update_status_bar(0, total_lines)
                 return
 
             # Convert line numbers to regions
             all_lines_regions = self.view.lines(full_file_region)
             missing_regions = [all_lines_regions[line - 1] for line in missing]
 
-            # Add visual indicators
+            # Add visual indicators with configurable settings
+            gutter_icon = get_setting("gutter_icon", "triangle")
+            highlight_scope = get_setting("highlight_scope", "region.orangish")
+            icon_path = f"Packages/sublime-python-coverage/images/{gutter_icon}.png"
+
             self.view.add_regions(
                 key="python-coverage",
                 regions=missing_regions,
-                scope="region.orangish",
-                icon="Packages/sublime-python-coverage/images/triangle.png",
+                scope=highlight_scope,
+                icon=icon_path,
                 flags=sublime.RegionFlags.HIDDEN,
             )
             logger.debug(f"Updated regions for {file_name}: {len(missing)} missing lines")
 
+            # Update status bar with coverage info
+            self._update_status_bar(len(missing), total_lines)
+
         except Exception as e:
             logger.error(f"Error updating regions for {file_name}: {e}", exc_info=True)
             self.view.erase_regions(key="python-coverage")
+            self._clear_status_bar()
+
+    def _update_status_bar(self, missing_count: int, total_lines: int):
+        """Update the status bar with coverage information."""
+        if not get_setting("show_coverage_on_status_bar", True):
+            return
+
+        if total_lines == 0:
+            self._clear_status_bar()
+            return
+
+        covered_lines = total_lines - missing_count
+        coverage_percent = (covered_lines / total_lines) * 100
+
+        status_text = f"Coverage: {coverage_percent:.0f}% ({covered_lines}/{total_lines} lines)"
+        self.view.set_status("python_coverage", status_text)
+
+    def _clear_status_bar(self):
+        """Clear coverage information from the status bar."""
+        self.view.erase_status("python_coverage")
 
     def on_hover(self, point, hover_zone):
         """
