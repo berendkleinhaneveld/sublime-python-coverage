@@ -97,7 +97,9 @@ def test_coverage_manager_get_coverage_for_file(
     assert cov is not None
 
 
-def test_coverage_manager_cleanup_stale_files(tmp_path, mock_coverage_data, mock_file_observer):
+def test_coverage_manager_cleanup_stale_files(
+    tmp_path, mock_coverage_data, mock_file_observer
+):
     """Test cleanup of stale coverage files."""
     from python_coverage import CoverageManager
 
@@ -119,7 +121,9 @@ def test_coverage_manager_cleanup_stale_files(tmp_path, mock_coverage_data, mock
     assert coverage_file not in manager.coverage_files
 
 
-def test_coverage_manager_shutdown(temp_coverage_file, mock_coverage_data, mock_file_observer):
+def test_coverage_manager_shutdown(
+    temp_coverage_file, mock_coverage_data, mock_file_observer
+):
     """Test shutting down the coverage manager."""
     from python_coverage import CoverageManager
 
@@ -160,6 +164,7 @@ def test_debounced_update_cancels_existing_timer(
     temp_coverage_file, mock_coverage_data, mock_file_observer
 ):
     """Test that scheduling a new update cancels the existing timer."""
+
     from python_coverage import CoverageManager
 
     manager = CoverageManager()
@@ -170,13 +175,20 @@ def test_debounced_update_cancels_existing_timer(
     manager._schedule_debounced_update(temp_coverage_file)
     first_timer = manager._update_timers[temp_coverage_file]
 
-    # Schedule second update
+    # Schedule second update (should cancel first timer)
     manager._schedule_debounced_update(temp_coverage_file)
     second_timer = manager._update_timers[temp_coverage_file]
 
-    # First timer should be cancelled, second should be active
+    # Verify the timers are different objects (old one was replaced)
     assert first_timer is not second_timer
-    assert not first_timer.is_alive()
+
+    # Wait briefly for the cancelled timer's thread to finish
+    # Timer.cancel() prevents execution but thread may still be alive briefly
+    first_timer.finished.wait(timeout=0.1)
+
+    # Now verify the first timer finished (cancelled or executed)
+    assert first_timer.finished.is_set()
+    # Second timer should still be active
     assert second_timer.is_alive()
 
     # Cleanup
@@ -390,3 +402,47 @@ def test_file_watcher_ignores_non_coverage_files(
 
     # Verify debounced update was NOT called
     spy.assert_not_called()
+
+
+def test_coverage_manager_recreates_observer_after_stop(
+    tmp_path, mock_coverage_data, mocker
+):
+    """
+    Test that the observer is recreated when adding files after all files are removed.
+    """
+    from python_coverage import CoverageManager
+
+    # Mock the Observer class
+    mock_observer_instance = mocker.MagicMock()
+    # Initially alive, then becomes not alive after stop
+    mock_observer_instance.is_alive.side_effect = [True, True, False]
+    mock_observer_class = mocker.patch("watchdog.observers.Observer")
+    mock_observer_class.return_value = mock_observer_instance
+
+    # Create first coverage file
+    coverage_file_1 = tmp_path / ".coverage"
+    coverage_file_1.touch()
+
+    manager = CoverageManager()
+    manager.initialize()
+
+    # Add first file - observer should start
+    manager.add_coverage_file(coverage_file_1)
+    assert mock_observer_instance.start.call_count == 1
+
+    # Remove the file - observer should stop (is_alive returns True, so stop is called)
+    manager.remove_coverage_file(coverage_file_1)
+    mock_observer_instance.stop.assert_called_once()
+
+    # Create second coverage file
+    coverage_file_2 = tmp_path / "project2" / ".coverage"
+    coverage_file_2.parent.mkdir(parents=True)
+    coverage_file_2.touch()
+
+    # Add second file - should create NEW observer instance (is_alive returns False now)
+    manager.add_coverage_file(coverage_file_2)
+
+    # Verify a new Observer was created (second call to constructor)
+    assert mock_observer_class.call_count == 2
+    # Verify start was called on the new instance
+    assert mock_observer_instance.start.call_count == 2

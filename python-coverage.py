@@ -175,7 +175,9 @@ class CoverageManager:
 
             # Check if file still exists
             if not coverage_file_path.exists():
-                logger.info(f"Coverage file no longer exists, removing: {coverage_file_path}")
+                logger.info(
+                    f"Coverage file no longer exists, removing: {coverage_file_path}"
+                )
                 self.remove_coverage_file(coverage_file_path)
                 return
 
@@ -197,7 +199,10 @@ class CoverageManager:
                     logger.error(f"Error updating view regions: {e}", exc_info=True)
 
         except Exception as e:
-            logger.error(f"Error in debounced update for {coverage_file_path}: {e}", exc_info=True)
+            logger.error(
+                f"Error in debounced update for {coverage_file_path}: {e}",
+                exc_info=True,
+            )
 
     def add_coverage_file(self, coverage_file_path: Path) -> bool:
         """
@@ -221,9 +226,18 @@ class CoverageManager:
                 return False
 
             # Start observer if this is the first file and observer isn't running
-            if not self.coverage_files and self.file_observer and not self.file_observer.is_alive():
-                self.file_observer.start()
-                logger.info("Started file observer (first coverage file added)")
+            if not self.coverage_files and self.file_observer:
+                if not self.file_observer.is_alive():
+                    # Threads can only be started once,
+                    # so create a new observer if stopped
+                    from watchdog.observers import Observer
+
+                    self.file_observer = Observer()
+                    self.file_observer.start()
+                    logger.info(
+                        "Created and started new file observer "
+                        "(first coverage file added)"
+                    )
 
             cov_file = CoverageFile(self, coverage_file_path)
             self.coverage_files[coverage_file_path] = cov_file
@@ -231,7 +245,9 @@ class CoverageManager:
             return True
 
         except Exception as e:
-            logger.error(f"Failed to add coverage file {coverage_file_path}: {e}", exc_info=True)
+            logger.error(
+                f"Failed to add coverage file {coverage_file_path}: {e}", exc_info=True
+            )
             return False
 
     def remove_coverage_file(self, coverage_file_path: Path) -> bool:
@@ -257,14 +273,21 @@ class CoverageManager:
             logger.info(f"Removed coverage file: {coverage_file_path}")
 
             # Stop observer if no more files being tracked
-            if not self.coverage_files and self.file_observer and self.file_observer.is_alive():
+            if (
+                not self.coverage_files
+                and self.file_observer
+                and self.file_observer.is_alive()
+            ):
                 self.file_observer.stop()
                 logger.info("Stopped file observer (no coverage files remaining)")
 
             return True
 
         except Exception as e:
-            logger.error(f"Failed to remove coverage file {coverage_file_path}: {e}", exc_info=True)
+            logger.error(
+                f"Failed to remove coverage file {coverage_file_path}: {e}",
+                exc_info=True,
+            )
             return False
 
     def get_coverage_file(self, coverage_file_path: Path) -> Optional["CoverageFile"]:
@@ -355,15 +378,19 @@ def plugin_loaded():
         if sys.platform == "darwin":
             machine = platform.machine()
             if machine == "arm64":
-                tags.extend([
-                    f"cp{py_ver}-cp{py_ver}-macosx_11_0_arm64",
-                    f"cp{py_ver}-cp{py_ver}-macosx_10_9_universal2",
-                ])
+                tags.extend(
+                    [
+                        f"cp{py_ver}-cp{py_ver}-macosx_11_0_arm64",
+                        f"cp{py_ver}-cp{py_ver}-macosx_10_9_universal2",
+                    ]
+                )
             else:  # x86_64
-                tags.extend([
-                    f"cp{py_ver}-cp{py_ver}-macosx_10_9_x86_64",
-                    f"cp{py_ver}-cp{py_ver}-macosx_10_9_universal2",
-                ])
+                tags.extend(
+                    [
+                        f"cp{py_ver}-cp{py_ver}-macosx_10_9_x86_64",
+                        f"cp{py_ver}-cp{py_ver}-macosx_10_9_universal2",
+                    ]
+                )
         elif sys.platform == "win32":
             machine = platform.machine()
             if "64" in machine:
@@ -373,26 +400,34 @@ def plugin_loaded():
         elif sys.platform.startswith("linux"):
             machine = platform.machine()
             if machine == "x86_64":
-                tags.extend([
-                    f"cp{py_ver}-cp{py_ver}-manylinux_2_5_x86_64",
-                    f"cp{py_ver}-cp{py_ver}-manylinux2014_x86_64",
-                ])
+                tags.extend(
+                    [
+                        f"cp{py_ver}-cp{py_ver}-manylinux_2_5_x86_64",
+                        f"cp{py_ver}-cp{py_ver}-manylinux2014_x86_64",
+                    ]
+                )
             elif machine == "aarch64":
-                tags.extend([
-                    f"cp{py_ver}-cp{py_ver}-manylinux_2_17_aarch64",
-                    f"cp{py_ver}-cp{py_ver}-manylinux2014_aarch64",
-                ])
+                tags.extend(
+                    [
+                        f"cp{py_ver}-cp{py_ver}-manylinux_2_17_aarch64",
+                        f"cp{py_ver}-cp{py_ver}-manylinux2014_aarch64",
+                    ]
+                )
             elif machine in ("i686", "i386"):
-                tags.extend([
-                    f"cp{py_ver}-cp{py_ver}-manylinux_2_5_i686",
-                    f"cp{py_ver}-cp{py_ver}-manylinux2014_i686",
-                ])
+                tags.extend(
+                    [
+                        f"cp{py_ver}-cp{py_ver}-manylinux_2_5_i686",
+                        f"cp{py_ver}-cp{py_ver}-manylinux2014_i686",
+                    ]
+                )
 
         # Add generic py3 tags as fallback
-        tags.extend([
-            f"py{py_ver}-none-any",
-            f"py{py_version.major}-none-any",
-        ])
+        tags.extend(
+            [
+                f"py{py_ver}-none-any",
+                f"py{py_version.major}-none-any",
+            ]
+        )
 
         logger.info(f"Detected platform tags: {tags[:3]}...")
 
@@ -507,25 +542,36 @@ class CoverageFile:
             try:
                 if not self.coverage_file.exists():
                     if attempt < max_retries - 1:
-                        logger.debug(f"Coverage file not ready, retry {attempt + 1}/{max_retries}")
+                        logger.debug(
+                            "Coverage file not ready, "
+                            f"retry {attempt + 1}/{max_retries}"
+                        )
                         time.sleep(0.1 * (attempt + 1))  # Exponential backoff
                         continue
                     else:
                         logger.warning(
-                            f"Coverage file does not exist after retries: {self.coverage_file}"
+                            "Coverage file does not exist after retries: "
+                            f"{self.coverage_file}"
                         )
                         return False
 
                 self.data.read()
-                logger.debug(f"Successfully loaded coverage data for {self.coverage_file}")
+                logger.debug(
+                    f"Successfully loaded coverage data for {self.coverage_file}"
+                )
                 return True
 
             except Exception as e:
                 if attempt < max_retries - 1:
-                    logger.debug(f"Error loading coverage data (attempt {attempt + 1}): {e}")
+                    logger.debug(
+                        f"Error loading coverage data (attempt {attempt + 1}): {e}"
+                    )
                     time.sleep(0.1 * (attempt + 1))
                 else:
-                    logger.error(f"Failed to load coverage data after {max_retries} attempts: {e}")
+                    logger.error(
+                        "Failed to load coverage data after {max_retries} attempts: "
+                        f"{e}"
+                    )
                     raise
 
         return False
@@ -839,7 +885,9 @@ class PythonCoverageEventListener(sublime_plugin.ViewEventListener):
                 icon=icon_path,
                 flags=sublime.RegionFlags.HIDDEN,
             )
-            logger.debug(f"Updated regions for {file_name}: {len(missing)} missing lines")
+            logger.debug(
+                f"Updated regions for {file_name}: {len(missing)} missing lines"
+            )
 
             # Update status bar with coverage info
             self._update_status_bar(len(missing), total_lines)
@@ -861,7 +909,9 @@ class PythonCoverageEventListener(sublime_plugin.ViewEventListener):
         covered_lines = total_lines - missing_count
         coverage_percent = (covered_lines / total_lines) * 100
 
-        status_text = f"Coverage: {coverage_percent:.0f}% ({covered_lines}/{total_lines} lines)"
+        status_text = (
+            f"Coverage: {coverage_percent:.0f}% ({covered_lines}/{total_lines} lines)"
+        )
         self.view.set_status("python_coverage", status_text)
 
     def _clear_status_bar(self):

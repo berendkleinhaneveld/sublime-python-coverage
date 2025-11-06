@@ -272,7 +272,12 @@ class TestPythonCoverageEventListener:
         assert "python-coverage" not in sublime_view._regions
 
     def test_update_regions_with_missing_lines(
-        self, mocker, sublime_view, temp_coverage_file, mock_coverage_data, mock_file_observer
+        self,
+        mocker,
+        sublime_view,
+        temp_coverage_file,
+        mock_coverage_data,
+        mock_file_observer,
     ):
         """Test _update_regions when coverage file has missing lines."""
         import python_coverage as pc
@@ -309,7 +314,12 @@ class TestPythonCoverageEventListener:
         pc.COVERAGE_MANAGER = None
 
     def test_update_regions_all_lines_covered(
-        self, mocker, sublime_view, temp_coverage_file, mock_coverage_data, mock_file_observer
+        self,
+        mocker,
+        sublime_view,
+        temp_coverage_file,
+        mock_coverage_data,
+        mock_file_observer,
     ):
         """Test _update_regions when all lines are covered."""
         import python_coverage as pc
@@ -344,7 +354,12 @@ class TestPythonCoverageEventListener:
         pc.COVERAGE_MANAGER = None
 
     def test_update_regions_handles_errors(
-        self, mocker, sublime_view, temp_coverage_file, mock_coverage_data, mock_file_observer
+        self,
+        mocker,
+        sublime_view,
+        temp_coverage_file,
+        mock_coverage_data,
+        mock_file_observer,
     ):
         """Test _update_regions handles errors gracefully."""
         import python_coverage as pc
@@ -364,7 +379,9 @@ class TestPythonCoverageEventListener:
 
         # Mock missing_lines to raise an exception
         cov_file = pc.COVERAGE_MANAGER.coverage_files[temp_coverage_file]
-        mocker.patch.object(cov_file, "missing_lines", side_effect=Exception("Test error"))
+        mocker.patch.object(
+            cov_file, "missing_lines", side_effect=Exception("Test error")
+        )
 
         listener = PythonCoverageEventListener(sublime_view)
         listener._update_regions()

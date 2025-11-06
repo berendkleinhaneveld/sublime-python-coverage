@@ -81,9 +81,16 @@ class View:
             pos = line_end + 1  # +1 for the newline
         return regions
 
-    def add_regions(self, key: str, regions: list, scope: str = "", icon: str = "", flags: int = 0):
+    def add_regions(
+        self, key: str, regions: list, scope: str = "", icon: str = "", flags: int = 0
+    ):
         """Add regions to the view."""
-        self._regions[key] = {"regions": regions, "scope": scope, "icon": icon, "flags": flags}
+        self._regions[key] = {
+            "regions": regions,
+            "scope": scope,
+            "icon": icon,
+            "flags": flags,
+        }
 
     def erase_regions(self, key: str):
         """Erase regions from the view."""

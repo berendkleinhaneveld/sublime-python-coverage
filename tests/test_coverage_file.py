@@ -1,7 +1,9 @@
 """Tests for CoverageFile class."""
 
 
-def test_coverage_file_initialization(temp_coverage_file, mock_coverage_data, mock_file_observer):
+def test_coverage_file_initialization(
+    temp_coverage_file, mock_coverage_data, mock_file_observer
+):
     """Test CoverageFile initializes correctly."""
     from python_coverage import CoverageFile, CoverageManager
 
@@ -17,7 +19,9 @@ def test_coverage_file_initialization(temp_coverage_file, mock_coverage_data, mo
     assert cov_file.manager is manager
 
 
-def test_coverage_file_update(temp_coverage_file, mock_coverage_data, mock_file_observer):
+def test_coverage_file_update(
+    temp_coverage_file, mock_coverage_data, mock_file_observer
+):
     """Test CoverageFile.update() re-reads data."""
     from python_coverage import CoverageFile, CoverageManager
 
@@ -32,7 +36,9 @@ def test_coverage_file_update(temp_coverage_file, mock_coverage_data, mock_file_
     assert mock_coverage_data.read.call_count > initial_read_count
 
 
-def test_coverage_file_in_coverage_data(temp_coverage_file, mock_coverage_data, mock_file_observer):
+def test_coverage_file_in_coverage_data(
+    temp_coverage_file, mock_coverage_data, mock_file_observer
+):
     """Test CoverageFile.in_coverage_data() checks file presence."""
     from python_coverage import CoverageFile, CoverageManager
 
