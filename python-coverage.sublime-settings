@@ -1,3 +1,22 @@
 {
-	"show_missing_lines": false
+	// Enable/disable coverage visualization
+	"show_missing_lines": false,
+
+	// Show coverage percentage in status bar for the current file
+	"show_coverage_on_status_bar": true,
+
+	// Name of the coverage file to look for (default: ".coverage")
+	"coverage_file_name": ".coverage",
+
+	// Debounce delay in seconds for coverage file updates (default: 0.5)
+	// Increase if you experience issues with rapid file system events
+	"update_debounce_delay": 0.5,
+
+	// Gutter icon to use for marking uncovered lines
+	// Options: "triangle", "diamond", "line"
+	"gutter_icon": "triangle",
+
+	// Color scope for highlighting uncovered regions
+	// Common options: "region.orangish", "region.redish", "region.yellowish"
+	"highlight_scope": "region.orangish"
 }

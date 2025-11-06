@@ -130,3 +130,18 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Ruff
+.ruff_cache/
