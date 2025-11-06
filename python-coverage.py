@@ -342,20 +342,59 @@ def plugin_loaded():
     global COVERAGE_MANAGER
 
     try:
-        # Load platform-specific wheels
-        packaging_wheel = HERE / "libs" / "packaging-23.1-py3-none-any.whl"
-        if not packaging_wheel.exists():
-            sublime.error_message(
-                "Python Coverage: Missing packaging library.\nPlease reinstall the plugin."
-            )
-            return
+        # Manually detect platform for loading the correct wheels
+        # We don't use the packaging library because it doesn't work in Sublime Text's
+        # embedded Python environment (missing _sysconfigdata modules)
+        import platform
 
-        if str(packaging_wheel) not in sys.path:
-            sys.path.append(str(packaging_wheel))
+        py_version = sys.version_info
+        py_ver = f"{py_version.major}{py_version.minor}"
 
-        from packaging.tags import sys_tags
+        tags = []
+        # Construct platform-specific tags for wheel matching
+        if sys.platform == "darwin":
+            machine = platform.machine()
+            if machine == "arm64":
+                tags.extend([
+                    f"cp{py_ver}-cp{py_ver}-macosx_11_0_arm64",
+                    f"cp{py_ver}-cp{py_ver}-macosx_10_9_universal2",
+                ])
+            else:  # x86_64
+                tags.extend([
+                    f"cp{py_ver}-cp{py_ver}-macosx_10_9_x86_64",
+                    f"cp{py_ver}-cp{py_ver}-macosx_10_9_universal2",
+                ])
+        elif sys.platform == "win32":
+            machine = platform.machine()
+            if "64" in machine:
+                tags.append(f"cp{py_ver}-cp{py_ver}-win_amd64")
+            else:
+                tags.append(f"cp{py_ver}-cp{py_ver}-win32")
+        elif sys.platform.startswith("linux"):
+            machine = platform.machine()
+            if machine == "x86_64":
+                tags.extend([
+                    f"cp{py_ver}-cp{py_ver}-manylinux_2_5_x86_64",
+                    f"cp{py_ver}-cp{py_ver}-manylinux2014_x86_64",
+                ])
+            elif machine == "aarch64":
+                tags.extend([
+                    f"cp{py_ver}-cp{py_ver}-manylinux_2_17_aarch64",
+                    f"cp{py_ver}-cp{py_ver}-manylinux2014_aarch64",
+                ])
+            elif machine in ("i686", "i386"):
+                tags.extend([
+                    f"cp{py_ver}-cp{py_ver}-manylinux_2_5_i686",
+                    f"cp{py_ver}-cp{py_ver}-manylinux2014_i686",
+                ])
 
-        tags = [str(tag) for tag in sys_tags()]
+        # Add generic py3 tags as fallback
+        tags.extend([
+            f"py{py_ver}-none-any",
+            f"py{py_version.major}-none-any",
+        ])
+
+        logger.info(f"Detected platform tags: {tags[:3]}...")
 
         for prefix in {"coverage*", "watchdog*"}:
             # Figure out the right whl for the platform
