@@ -22,16 +22,9 @@ dev = [
     "watchdog>=3.0.0",
 ]
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
 [tool.ruff]
 # Target Python 3.8 for Sublime Text compatibility
 target-version = "py38"
-
-# Configure line length to match common Python style
-line-length = 100
 
 # Exclude common directories
 exclude = [
